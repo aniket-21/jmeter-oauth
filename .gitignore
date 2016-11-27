@@ -1,3 +1,4 @@
-jmeter/.idea
-jmeter/ApacheJmeter_oauth.iml
-jmeter/target
+**/.idea
+**/target
+**/*.iml
+**/classes

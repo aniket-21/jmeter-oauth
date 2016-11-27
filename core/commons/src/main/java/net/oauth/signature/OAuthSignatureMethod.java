@@ -138,8 +138,9 @@ public abstract class OAuthSignatureMethod {
 
     public static String getBaseString(OAuthMessage message)
             throws IOException, URISyntaxException {
-        List<Map.Entry<String, String>> parameters;
+        List<Map.Entry<String, String>> parameters = message.getParameters();
         String url = message.URL;
+
         int q = url.indexOf('?');
         if (q < 0) {
             parameters = message.getParameters();

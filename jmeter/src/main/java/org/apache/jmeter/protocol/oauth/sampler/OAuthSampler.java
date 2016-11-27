@@ -17,9 +17,11 @@
 
 package org.apache.jmeter.protocol.oauth.sampler;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UnsupportedEncodingException;
+import java.lang.Exception;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.net.URLDecoder;
@@ -216,6 +218,8 @@ public class OAuthSampler extends HTTPSampler2 {
 	
 			// Set any default request headers
 			setDefaultRequestHeaders(httpMethod);
+			res.setRequestHeaders(getConnectionHeaders(httpMethod));
+
             // Setup connection
 			client = setupConnection(new URL(urlStr), httpMethod, res);
 			// Handle POST and PUT
@@ -223,8 +227,6 @@ public class OAuthSampler extends HTTPSampler2 {
 				String postBody = sendPostData(httpMethod);
 				res.setQueryString(postBody);
 			}
-
-            res.setRequestHeaders(getConnectionHeaders(httpMethod));
 
 			int statusCode = client.executeMethod(httpMethod);
 
@@ -278,7 +280,8 @@ public class OAuthSampler extends HTTPSampler2 {
             }
             
 			// Store any cookies received in the cookie manager:
-			saveConnectionCookies(httpMethod, res.getURL(), getCookieManager());
+			//saveConnectionCookies(httpMethod, res.getURL(), getCookieManager());
+			saveConnectionCookies(httpMethod, url, getCookieManager());
 			
 			// Save cache information
             final CacheManager cacheManager = getCacheManager();
@@ -354,15 +357,56 @@ public class OAuthSampler extends HTTPSampler2 {
 	 */
 	private String sendPostData(HttpMethod method) throws IOException {
  
-		String form;
-        
-		if (useAuthHeader) {    
-		    form = OAuth.formEncode(nonOAuthParams);
-        } else {
-        	form = OAuth.formEncode(message.getParameters());
-        }
+		String form = "";
+		String contentType;
 
-        method.addRequestHeader(HEADER_CONTENT_TYPE, OAuth.FORM_ENCODED);
+		try{
+			contentType = method.getRequestHeader(HEADER_CONTENT_TYPE).toString();
+		}
+		catch(Exception e){
+			method.addRequestHeader(HEADER_CONTENT_TYPE, OAuth.FORM_ENCODED);
+			contentType = method.getRequestHeader(HEADER_CONTENT_TYPE).toString();
+		}
+
+		if(contentType.contains(OAuth.FORM_ENCODED)){
+			if (useAuthHeader) {
+				form = OAuth.formEncode(nonOAuthParams);
+			} else {
+				form = OAuth.formEncode(message.getParameters());
+			}
+		}
+		else {
+			ByteArrayOutputStream b = new ByteArrayOutputStream();
+			PropertyIterator args = getArguments().iterator();
+			int paramCount = 0;
+			boolean formSet = false;
+			while (args.hasNext()) {
+				paramCount++;
+				HTTPArgument arg = (HTTPArgument) args.next().getObjectValue();
+				if (paramCount == 1){
+					if(arg.getName().equals("")){
+						form = arg.getValue().toString();
+						formSet = true;
+						break;
+					}
+					else{
+						b.write(arg.getName().toString().getBytes());
+						b.write('=');
+						b.write(arg.getValue().toString().getBytes());
+					}
+				}
+				else{
+					b.write('&');
+					b.write(arg.getName().toString().getBytes());
+					b.write('=');
+					b.write(arg.getValue().toString().getBytes());
+				}
+			}
+
+			if(formSet == false)
+				form = new String(b.toByteArray());
+		}
+
         method.addRequestHeader(HEADER_CONTENT_LENGTH, form.length() + ""); //$NON-NLS-1$
        
         if (method instanceof PostMethod || method instanceof PutMethod) {
@@ -422,6 +466,7 @@ public class OAuthSampler extends HTTPSampler2 {
 		while (args.hasNext()) {
 			HTTPArgument arg = (HTTPArgument) args.next().getObjectValue();
 			String parameterName = arg.getName();
+			if(parameterName.equals("")) continue;
 			String parameterValue = arg.getValue();
 			if (!arg.isAlwaysEncoded()) {
                 String urlContentEncoding = getContentEncoding();
@@ -442,9 +487,10 @@ public class OAuthSampler extends HTTPSampler2 {
 	    
 	    message.addParameter(OAuth.OAUTH_SIGNATURE_METHOD,
 	    		getPropertyAsString(SIGNATURE_METHOD));
-	    
+
 	    if (accessor.accessToken != null && accessor.accessToken.length() > 0)
-	    	message.addParameter(OAuth.OAUTH_TOKEN, accessor.accessToken);
+		message.addParameter(OAuth.OAUTH_TOKEN, accessor.accessToken);
+
 	    
     	// Sign the message
     	message.addRequiredParameters(accessor);

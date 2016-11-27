@@ -260,7 +260,7 @@ public class OAuthMessage {
     public void addRequiredParameters(OAuthAccessor accessor)
             throws OAuthException, IOException, URISyntaxException {
         final Map<String, String> pMap = OAuth.newMap(parameters);
-        if (pMap.get(OAuth.OAUTH_TOKEN) == null && accessor.accessToken != null) {
+        if (pMap.get(OAuth.OAUTH_TOKEN) == null && accessor.accessToken != null && !this.URL.toLowerCase().contains("oauth/requesttoken")) {
             addParameter(OAuth.OAUTH_TOKEN, accessor.accessToken);
         }
         final OAuthConsumer consumer = accessor.consumer;
